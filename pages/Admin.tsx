@@ -6,7 +6,7 @@ import {
   DollarSign, Lock, Mail, ArrowUpRight, PlusSquare, 
   Upload, ClipboardList, Archive, Globe, PlusCircle, 
   TrendingUp, Zap, ArrowRight, Shield, Share2, Pencil,
-  ChevronRight, RefreshCcw
+  ChevronRight, RefreshCcw, ExternalLink
 } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Product, BrandingConfig, Inquiry, NavigationLink, SocialLink } from '../types';
@@ -33,8 +33,8 @@ const Admin: React.FC = () => {
   const [tempBranding, setTempBranding] = useState<BrandingConfig>(branding);
   
   // Deployment Form State
-  const [newAsset, setNewAsset] = useState<{name: string, url: string, features: string, image: string, previewMode: 'iframe' | 'redirect'}>({ 
-    name: '', url: '', features: '', image: '', previewMode: 'iframe' 
+  const [newAsset, setNewAsset] = useState<{name: string, url: string, features: string, image: string, basePrice: string, previewMode: 'iframe' | 'redirect'}>({ 
+    name: '', url: '', features: '', image: '', basePrice: '', previewMode: 'iframe' 
   });
   
   // Security Form State
@@ -97,9 +97,10 @@ const Admin: React.FC = () => {
         demoUrl: newAsset.url,
         features: newAsset.features.split(',').map(f => f.trim()).filter(f => f !== ''),
         image: newAsset.image || 'https://images.unsplash.com/photo-1460925895917-afdab827c52f?auto=format&fit=crop&q=80&w=800',
-        previewMode: newAsset.previewMode
+        previewMode: newAsset.previewMode,
+        basePrice: parseFloat(newAsset.basePrice) || 0
       });
-      setNewAsset({ name: '', url: '', features: '', image: '', previewMode: 'iframe' });
+      setNewAsset({ name: '', url: '', features: '', image: '', basePrice: '', previewMode: 'iframe' });
       await loadData();
       setCurrentTab('inventory');
     } catch (err) {
@@ -125,6 +126,7 @@ const Admin: React.FC = () => {
         demoUrl: editingProduct.demoUrl,
         image: editingProduct.image,
         previewMode: editingProduct.previewMode,
+        basePrice: editingProduct.basePrice,
         features: editFeatures.split(',').map(f => f.trim()).filter(f => f !== '')
       });
       setEditingProduct(null);
@@ -151,7 +153,8 @@ const Admin: React.FC = () => {
   };
 
   // ACQUISITION BIDS LOGIC
-  const handleBidAction = async (prodId: string, bidId: string, status: 'accepted' | 'rejected') => {
+  // Fix: Extended status type to include 'pending' to match Bid status types and resolve type error on line 480
+  const handleBidAction = async (prodId: string, bidId: string, status: 'pending' | 'accepted' | 'rejected') => {
     await api.updateBidStatus(prodId, bidId, status);
     await loadData();
   };
@@ -215,7 +218,7 @@ const Admin: React.FC = () => {
   };
 
   // Aggregated Views
-  const allBids = products.flatMap(p => p.bids.map(b => ({ ...b, siteName: p.name, siteId: p.id })));
+  const allBids = products.flatMap(p => (p.bids || []).map(b => ({ ...b, siteName: p.name, siteId: p.id, basePrice: p.basePrice })));
   const pendingBids = allBids.filter(b => b.status === 'pending');
   const grossRevenue = allBids.reduce((acc, b) => acc + (b.status === 'accepted' ? b.amount : 0), 0);
   const activeProducts = products.filter(p => p.status === 'available');
@@ -338,6 +341,10 @@ const Admin: React.FC = () => {
                   <input required value={newAsset.url} onChange={e => setNewAsset({...newAsset, url: e.target.value})} className="w-full bg-background border border-border-light rounded-2xl px-6 py-4 text-white focus:border-primary focus:outline-none transition-all font-bold" placeholder="https://demo.io" />
                 </div>
                 <div className="space-y-3">
+                  <label className="text-[10px] font-black uppercase text-gray-500 tracking-widest ml-2">Floor Price (USD)</label>
+                  <input required type="number" value={newAsset.basePrice} onChange={e => setNewAsset({...newAsset, basePrice: e.target.value})} className="w-full bg-background border border-border-light rounded-2xl px-6 py-4 text-white focus:border-primary focus:outline-none transition-all font-bold" placeholder="15000" />
+                </div>
+                <div className="space-y-3">
                   <label className="text-[10px] font-black uppercase text-gray-500 tracking-widest ml-2">Preview Protocol</label>
                   <select 
                     value={newAsset.previewMode}
@@ -348,12 +355,12 @@ const Admin: React.FC = () => {
                     <option value="redirect">Direct Tab Redirect</option>
                   </select>
                 </div>
+              </div>
+              <div className="bg-background-surface border border-border-light p-10 rounded-[3rem] space-y-8 shadow-2xl flex flex-col justify-between">
                 <div className="space-y-3">
                   <label className="text-[10px] font-black uppercase text-gray-500 tracking-widest ml-2">Stack Keywords</label>
                   <input required value={newAsset.features} onChange={e => setNewAsset({...newAsset, features: e.target.value})} className="w-full bg-background border border-border-light rounded-2xl px-6 py-4 text-white focus:border-primary focus:outline-none transition-all font-bold" placeholder="Next.js, Tailwind, 100 Page Speed" />
                 </div>
-              </div>
-              <div className="bg-background-surface border border-border-light p-10 rounded-[3rem] space-y-8 shadow-2xl flex flex-col justify-between">
                 <div className="space-y-3">
                   <label className="text-[10px] font-black uppercase text-gray-500 tracking-widest ml-2">Visual Atmosphere</label>
                   <div className="relative h-48 bg-background border-2 border-dashed border-border-light rounded-[2rem] flex flex-col items-center justify-center overflow-hidden hover:border-primary/50 transition-all cursor-pointer">
@@ -397,7 +404,10 @@ const Admin: React.FC = () => {
                     </div>
                   </div>
                   <div className="p-8 flex-1 flex flex-col">
-                    <h4 className="text-white font-black text-xl mb-6 uppercase tracking-tighter">{p.name}</h4>
+                    <div className="flex justify-between items-start mb-6">
+                      <h4 className="text-white font-black text-xl uppercase tracking-tighter">{p.name}</h4>
+                      <p className="text-primary font-black text-sm">${(p.basePrice || 0).toLocaleString()}</p>
+                    </div>
                     <div className="flex gap-3 mt-auto">
                       <button onClick={() => handleToggleSold(p.id, p.status)} className="flex-1 bg-white/5 border border-border-light text-white text-[10px] font-black py-4 rounded-xl hover:bg-white/10 transition-all uppercase tracking-widest">Mark Sold</button>
                       <button onClick={() => startEditing(p)} className="p-4 text-primary bg-primary/10 rounded-xl hover:bg-primary/20 transition-all">
@@ -413,8 +423,75 @@ const Admin: React.FC = () => {
           </div>
         )}
 
-        {/* ... (Existing Tabs: sold, bids, inquiries, branding, settings) */}
-        
+        {currentTab === 'bids' && (
+          <div className="space-y-12 animate-fade-in">
+            <header className="flex justify-between items-end">
+              <div>
+                <h2 className="text-5xl font-black text-white tracking-tight">Acquisitions</h2>
+                <p className="text-gray-500 mt-2 font-medium">Review and verify investment proposals for cloud infrastructure.</p>
+              </div>
+            </header>
+            <div className="bg-background-surface border border-border-light rounded-[3rem] overflow-hidden shadow-2xl">
+              <table className="w-full text-left">
+                <thead className="bg-white/5 border-b border-white/5">
+                  <tr className="text-gray-500 text-[10px] font-black uppercase tracking-widest">
+                    <th className="px-10 py-8">Source Officer</th>
+                    <th className="px-10 py-8">Target Asset</th>
+                    <th className="px-10 py-8">Bid Status</th>
+                    <th className="px-10 py-8">Capital Delta</th>
+                    <th className="px-10 py-8 text-right">Action</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-white/5">
+                  {allBids.map(bid => {
+                    const profit = bid.amount - (bid.basePrice || 0);
+                    const isProfit = profit >= 0;
+                    
+                    return (
+                      <tr key={bid.id} className="hover:bg-white/5 transition-colors group">
+                        <td className="px-10 py-8">
+                          <p className="text-white font-black text-base">{bid.clientName}</p>
+                          <div className="flex items-center gap-2 mt-1">
+                            <p className="text-[10px] text-gray-500 uppercase font-black tracking-widest">{bid.clientEmail}</p>
+                            <a href={`mailto:${bid.clientEmail}`} className="text-primary opacity-0 group-hover:opacity-100 transition-opacity"><ExternalLink size={10} /></a>
+                          </div>
+                        </td>
+                        <td className="px-10 py-8">
+                          <p className="text-gray-400 font-bold text-sm uppercase">{bid.siteName}</p>
+                          <p className="text-[9px] text-gray-600 font-black uppercase tracking-widest mt-1">Floor: ${bid.basePrice?.toLocaleString()}</p>
+                        </td>
+                        <td className="px-10 py-8">
+                          <div className="flex flex-col">
+                            <span className="text-2xl font-black text-white">${bid.amount.toLocaleString()}</span>
+                            <span className={`text-[8px] font-black uppercase px-2 py-0.5 rounded-md mt-1 w-fit ${bid.status === 'accepted' ? 'bg-green-500/10 text-green-500' : bid.status === 'rejected' ? 'bg-red-500/10 text-red-500' : 'bg-primary/10 text-primary'}`}>{bid.status}</span>
+                          </div>
+                        </td>
+                        <td className="px-10 py-8">
+                          <div className={`flex items-center gap-1 font-mono text-xs font-black ${isProfit ? 'text-green-500' : 'text-red-500'}`}>
+                            {isProfit ? '+' : '-'}${Math.abs(profit).toLocaleString()}
+                          </div>
+                        </td>
+                        <td className="px-10 py-8 text-right">
+                          {bid.status === 'pending' ? (
+                            <div className="flex justify-end gap-3">
+                              <button onClick={() => handleBidAction(bid.siteId, bid.id, 'accepted')} className="p-4 bg-green-500/10 text-green-500 rounded-2xl hover:bg-green-500/20 transition-all shadow-lg"><Check size={20} /></button>
+                              <button onClick={() => handleBidAction(bid.siteId, bid.id, 'rejected')} className="p-4 bg-red-500/10 text-red-500 rounded-2xl hover:bg-red-500/20 transition-all shadow-lg"><X size={20} /></button>
+                            </div>
+                          ) : (
+                            <button onClick={() => handleBidAction(bid.siteId, bid.id, 'pending')} className="p-3 text-gray-600 hover:text-white transition-colors"><RefreshCcw size={16} /></button>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                  {allBids.length === 0 && <tr><td colSpan={5} className="px-10 py-32 text-center text-gray-600 font-black uppercase tracking-widest italic">No proposals logged in system.</td></tr>}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
+        {/* ... Other tabs (sold, inquiries, branding, settings) remain unchanged ... */}
         {currentTab === 'sold' && (
           <div className="space-y-12 animate-fade-in">
             <header>
@@ -432,45 +509,6 @@ const Admin: React.FC = () => {
                 </div>
               ))}
               {soldProducts.length === 0 && <div className="col-span-full py-40 border-2 border-dashed border-white/5 rounded-[4rem] text-center"><Archive size={48} className="mx-auto text-gray-800 mb-4" /><p className="text-gray-600 font-black uppercase tracking-widest">Archive empty.</p></div>}
-            </div>
-          </div>
-        )}
-
-        {currentTab === 'bids' && (
-          <div className="space-y-12 animate-fade-in">
-            <header>
-              <h2 className="text-5xl font-black text-white tracking-tight">Acquisitions</h2>
-              <p className="text-gray-500 mt-2 font-medium">Review and verify investment proposals for cloud infrastructure.</p>
-            </header>
-            <div className="bg-background-surface border border-border-light rounded-[3rem] overflow-hidden shadow-2xl">
-              <table className="w-full text-left">
-                <thead className="bg-white/5 border-b border-white/5">
-                  <tr className="text-gray-500 text-[10px] font-black uppercase tracking-widest">
-                    <th className="px-10 py-8">Source Officer</th>
-                    <th className="px-10 py-8">Target Asset</th>
-                    <th className="px-10 py-8">Bid Value</th>
-                    <th className="px-10 py-8 text-right">Verification</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-white/5">
-                  {allBids.map(bid => (
-                    <tr key={bid.id} className="hover:bg-white/5 transition-colors">
-                      <td className="px-10 py-8"><p className="text-white font-black text-base">{bid.clientName}</p><p className="text-[10px] text-gray-500 uppercase font-black tracking-widest">{bid.clientEmail}</p></td>
-                      <td className="px-10 py-8 text-gray-400 font-bold text-sm uppercase">{bid.siteName}</td>
-                      <td className="px-10 py-8"><span className="text-2xl font-black text-primary">${bid.amount.toLocaleString()}</span></td>
-                      <td className="px-10 py-8 text-right">
-                        {bid.status === 'pending' ? (
-                          <div className="flex justify-end gap-3">
-                            <button onClick={() => handleBidAction(bid.siteId, bid.id, 'accepted')} className="p-4 bg-green-500/10 text-green-500 rounded-2xl hover:bg-green-500/20 transition-all shadow-lg"><Check size={20} /></button>
-                            <button onClick={() => handleBidAction(bid.siteId, bid.id, 'rejected')} className="p-4 bg-red-500/10 text-red-500 rounded-2xl hover:bg-red-500/20 transition-all shadow-lg"><X size={20} /></button>
-                          </div>
-                        ) : <span className={`text-[10px] font-black uppercase px-4 py-2 rounded-xl ${bid.status === 'accepted' ? 'bg-green-500/10 text-green-500' : 'bg-red-500/10 text-red-500'}`}>{bid.status}</span>}
-                      </td>
-                    </tr>
-                  ))}
-                  {allBids.length === 0 && <tr><td colSpan={4} className="px-10 py-32 text-center text-gray-600 font-black uppercase tracking-widest italic">No proposals logged in system.</td></tr>}
-                </tbody>
-              </table>
             </div>
           </div>
         )}
@@ -596,6 +634,16 @@ const Admin: React.FC = () => {
                     />
                   </div>
                   <div className="space-y-3">
+                    <label className="text-[10px] font-black uppercase text-gray-500 tracking-widest ml-2">Floor Price (USD)</label>
+                    <input 
+                      required 
+                      type="number"
+                      value={editingProduct.basePrice} 
+                      onChange={e => setEditingProduct({...editingProduct, basePrice: parseFloat(e.target.value)})} 
+                      className="w-full bg-background border border-border-light rounded-2xl px-6 py-4 text-white focus:border-primary focus:outline-none transition-all font-bold" 
+                    />
+                  </div>
+                  <div className="space-y-3">
                     <label className="text-[10px] font-black uppercase text-gray-500 tracking-widest ml-2">Preview Protocol</label>
                     <select 
                       value={editingProduct.previewMode}
@@ -606,6 +654,9 @@ const Admin: React.FC = () => {
                       <option value="redirect">Direct Tab Redirect</option>
                     </select>
                   </div>
+                </div>
+
+                <div className="space-y-8 flex flex-col justify-between">
                   <div className="space-y-3">
                     <label className="text-[10px] font-black uppercase text-gray-500 tracking-widest ml-2">Stack Keywords</label>
                     <input 
@@ -615,9 +666,6 @@ const Admin: React.FC = () => {
                       className="w-full bg-background border border-border-light rounded-2xl px-6 py-4 text-white focus:border-primary focus:outline-none transition-all font-bold" 
                     />
                   </div>
-                </div>
-
-                <div className="space-y-8 flex flex-col justify-between">
                   <div className="space-y-3">
                     <label className="text-[10px] font-black uppercase text-gray-500 tracking-widest ml-2">Visual Atmosphere</label>
                     <div className="relative h-48 bg-background border-2 border-dashed border-border-light rounded-[2rem] flex flex-col items-center justify-center overflow-hidden hover:border-primary/50 transition-all cursor-pointer">

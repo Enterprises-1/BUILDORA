@@ -30,19 +30,20 @@ const ScrollToTop = () => {
   return null;
 };
 
-// Secret Shortcut Listener Component
+// Internal Access Protocol Listener
 const AdminShortcutListener = () => {
   const navigate = useNavigate();
   useEffect(() => {
     let inputBuffer = '';
     const handleKeyDown = (e: KeyboardEvent) => {
       inputBuffer += e.key;
-      if (inputBuffer.endsWith('@@@@@')) {
+      // Professional authorization trigger string
+      if (inputBuffer.endsWith('buildora-access')) {
         navigate('/admin');
         inputBuffer = '';
       }
-      if (inputBuffer.length > 20) {
-        inputBuffer = inputBuffer.substring(inputBuffer.length - 10);
+      if (inputBuffer.length > 30) {
+        inputBuffer = inputBuffer.substring(inputBuffer.length - 15);
       }
     };
     window.addEventListener('keydown', handleKeyDown);
@@ -78,7 +79,7 @@ const App: React.FC = () => {
         <ScrollToTop />
         <div className="min-h-screen flex flex-col bg-background text-gray-200">
           <Routes>
-            {/* Main Application Shell */}
+            {/* Core Application Layer */}
             <Route path="*" element={
               <>
                 <Navbar />
@@ -98,7 +99,7 @@ const App: React.FC = () => {
                 <Footer />
               </>
             } />
-            {/* Autonomous Admin Shell */}
+            {/* Secure Management Console */}
             <Route path="/admin" element={<Admin />} />
           </Routes>
         </div>

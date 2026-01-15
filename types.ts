@@ -19,6 +19,7 @@ export interface Product {
   image: string;
   status: 'available' | 'sold';
   deploymentDate: string;
+  basePrice: number; // The starting/minimum investment amount
   bids: Bid[];
   previewMode: 'iframe' | 'redirect'; // Support for enterprise security constraints
 }

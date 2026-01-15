@@ -118,14 +118,18 @@ class ApiService {
   // --- PRODUCT MANAGEMENT ---
   async getProducts(): Promise<Product[]> {
     const products = (await this.get<Product[]>('products')) || [];
-    // Ensure all products have a previewMode
-    return Array.isArray(products) ? products.map(p => ({ ...p, previewMode: p.previewMode || 'iframe' })) : [];
+    // Ensure all products have a previewMode and basePrice
+    return Array.isArray(products) ? products.map(p => ({ 
+      ...p, 
+      previewMode: p.previewMode || 'iframe',
+      basePrice: p.basePrice || 0,
+      bids: p.bids || []
+    })) : [];
   }
 
   async getProductById(id: string): Promise<Product | null> {
     const products = await this.getProducts();
     const p = products.find(p => p.id === id) || null;
-    if (p && !p.previewMode) p.previewMode = 'iframe';
     return p;
   }
 
@@ -137,6 +141,7 @@ class ApiService {
       deploymentDate: new Date().toLocaleDateString(),
       status: 'available',
       bids: [],
+      basePrice: product.basePrice || 0,
       previewMode: product.previewMode || 'iframe'
     };
     await this.save('products', [newProduct, ...products]);
@@ -173,12 +178,15 @@ class ApiService {
     await this.save('products', updated);
   }
 
-  async updateBidStatus(productId: string, bidId: string, status: 'accepted' | 'rejected'): Promise<void> {
+  // Fix: Extended status type to include 'pending' to handle bid resets and ensure consistent p.status logic
+  async updateBidStatus(productId: string, bidId: string, status: 'pending' | 'accepted' | 'rejected'): Promise<void> {
     const products = await this.getProducts();
     const updated = products.map(p => {
       if (p.id === productId) {
         const updatedBids = p.bids.map(b => b.id === bidId ? { ...b, status } : b);
-        const newStatus = status === 'accepted' ? 'sold' : p.status;
+        // A product is 'sold' if any bid is currently accepted
+        const isAnyAccepted = updatedBids.some(b => b.status === 'accepted');
+        const newStatus = isAnyAccepted ? 'sold' : 'available';
         return { ...p, bids: updatedBids, status: newStatus as any };
       }
       return p;

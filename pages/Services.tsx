@@ -55,7 +55,7 @@ const Services: React.FC = () => {
                     <div className="w-3 h-3 rounded-full bg-red-500"></div>
                     <div className="w-3 h-3 rounded-full bg-yellow-500"></div>
                     <div className="w-3 h-3 rounded-full bg-green-500"></div>
-                    <div className="ml-auto text-xs text-gray-500 font-mono tracking-tighter">BUILDORA_PREVIEW_V1.EXE</div>
+                    <div className="ml-auto text-xs text-gray-500 font-mono tracking-tighter">B_INFRA_MONITOR.SYS</div>
                 </div>
                 <div className="space-y-4">
                     <div className="h-8 bg-white/5 rounded-lg w-3/4"></div>

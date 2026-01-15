@@ -3,7 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { 
   Globe, DollarSign, ExternalLink, ArrowUpRight, 
-  CheckCircle2, X, Send, User, Mail, Sparkles, Search, Layout 
+  CheckCircle2, X, Send, User, Mail, Sparkles, Search, Layout, TrendingUp
 } from 'lucide-react';
 import { Product } from '../types';
 import { api } from '../services/api';
@@ -35,13 +35,20 @@ const AvailableWebsites: React.FC = () => {
   const handleBidSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedProduct) return;
+    
+    const amount = parseFloat(bidForm.amount);
+    if (amount < selectedProduct.basePrice) {
+      alert(`Minimum bid for this asset is $${selectedProduct.basePrice.toLocaleString()}.`);
+      return;
+    }
+
     setIsSubmitting(true);
 
     try {
       await api.submitBid(selectedProduct.id, {
         clientName: bidForm.name,
         clientEmail: bidForm.email,
-        amount: parseFloat(bidForm.amount),
+        amount: amount,
       });
 
       setShowSuccess(true);
@@ -96,49 +103,65 @@ const AvailableWebsites: React.FC = () => {
           <div className="py-40 flex justify-center"><div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin"></div></div>
         ) : (
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-10">
-            {filteredProducts.map((p) => (
-              <div key={p.id} className="bg-background-surface border border-border-light rounded-[3rem] overflow-hidden group hover:border-primary/40 transition-all flex flex-col shadow-2xl relative">
-                <div className="relative h-72 overflow-hidden">
-                  <img 
-                    src={p.image} 
-                    alt={p.name} 
-                    className="w-full h-full object-cover grayscale opacity-60 group-hover:grayscale-0 group-hover:opacity-100 group-hover:scale-110 transition-all duration-1000"
-                  />
-                  <div className="absolute inset-0 bg-gradient-to-t from-background-surface via-transparent to-transparent opacity-80"></div>
-                  <div className="absolute top-6 right-6">
-                     <div className="bg-green-500 text-white text-[8px] font-black px-4 py-2 rounded-xl shadow-2xl flex items-center gap-2 uppercase tracking-widest border border-white/10 backdrop-blur-md">
-                       <Globe size={10} className="animate-pulse" /> Live Deployment
-                     </div>
-                  </div>
-                </div>
-
-                <div className="p-10 flex-1 flex flex-col">
-                  <div className="mb-8">
-                    <h3 className="text-2xl font-black text-white mb-4 uppercase tracking-tighter leading-none">{p.name}</h3>
-                    <div className="flex flex-wrap gap-2">
-                      {p.features.slice(0, 4).map((f, i) => (
-                        <span key={i} className="text-[8px] font-black text-gray-500 bg-white/5 px-3 py-1.5 rounded-lg border border-white/5 uppercase tracking-widest">{f}</span>
-                      ))}
+            {filteredProducts.map((p) => {
+              const activeBids = p.bids?.filter(b => b.status === 'pending').length || 0;
+              const highestBid = Math.max(p.basePrice, ...(p.bids?.map(b => b.amount) || []));
+              
+              return (
+                <div key={p.id} className="bg-background-surface border border-border-light rounded-[3rem] overflow-hidden group hover:border-primary/40 transition-all flex flex-col shadow-2xl relative">
+                  <div className="relative h-72 overflow-hidden">
+                    <img 
+                      src={p.image} 
+                      alt={p.name} 
+                      className="w-full h-full object-cover grayscale opacity-60 group-hover:grayscale-0 group-hover:opacity-100 group-hover:scale-110 transition-all duration-1000"
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-t from-background-surface via-transparent to-transparent opacity-80"></div>
+                    <div className="absolute top-6 right-6 flex flex-col gap-2 items-end">
+                       <div className="bg-green-500 text-white text-[8px] font-black px-4 py-2 rounded-xl shadow-2xl flex items-center gap-2 uppercase tracking-widest border border-white/10 backdrop-blur-md">
+                         <Globe size={10} className="animate-pulse" /> Live Deployment
+                       </div>
+                       {activeBids > 0 && (
+                         <div className="bg-primary text-white text-[8px] font-black px-4 py-2 rounded-xl shadow-2xl flex items-center gap-2 uppercase tracking-widest border border-white/10 backdrop-blur-md">
+                           <TrendingUp size={10} /> {activeBids} Active Bids
+                         </div>
+                       )}
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-2 gap-4 mt-auto">
-                    <Link 
-                      to={`/preview/${p.id}`}
-                      className="flex items-center justify-center gap-3 bg-white/5 hover:bg-white/10 text-white font-black py-5 rounded-2xl border border-border-light transition-all text-[10px] uppercase tracking-widest"
-                    >
-                      Audit <ArrowUpRight size={14} />
-                    </Link>
-                    <button 
-                      onClick={() => setSelectedProduct(p)}
-                      className="bg-primary hover:bg-primary-hover text-white font-black py-5 rounded-2xl transition-all text-[10px] uppercase tracking-widest shadow-xl shadow-primary/20 active:scale-95"
-                    >
-                      Acquire
-                    </button>
+                  <div className="p-10 flex-1 flex flex-col">
+                    <div className="mb-8">
+                      <div className="flex justify-between items-start mb-4">
+                        <h3 className="text-2xl font-black text-white uppercase tracking-tighter leading-none">{p.name}</h3>
+                        <div className="text-right">
+                          <p className="text-[8px] font-black text-gray-500 uppercase tracking-widest">Floor Price</p>
+                          <p className="text-lg font-black text-primary">${highestBid.toLocaleString()}</p>
+                        </div>
+                      </div>
+                      <div className="flex flex-wrap gap-2">
+                        {p.features.slice(0, 4).map((f, i) => (
+                          <span key={i} className="text-[8px] font-black text-gray-500 bg-white/5 px-3 py-1.5 rounded-lg border border-white/5 uppercase tracking-widest">{f}</span>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4 mt-auto">
+                      <Link 
+                        to={`/preview/${p.id}`}
+                        className="flex items-center justify-center gap-3 bg-white/5 hover:bg-white/10 text-white font-black py-5 rounded-2xl border border-border-light transition-all text-[10px] uppercase tracking-widest"
+                      >
+                        Audit <ArrowUpRight size={14} />
+                      </Link>
+                      <button 
+                        onClick={() => setSelectedProduct(p)}
+                        className="bg-primary hover:bg-primary-hover text-white font-black py-5 rounded-2xl transition-all text-[10px] uppercase tracking-widest shadow-xl shadow-primary/20 active:scale-95"
+                      >
+                        Acquire
+                      </button>
+                    </div>
                   </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
 
@@ -177,6 +200,7 @@ const AvailableWebsites: React.FC = () => {
                 <header className="mb-12 text-center">
                   <p className="text-primary font-black uppercase text-[10px] tracking-[0.6em] mb-4">Official Asset Acquisition</p>
                   <h3 className="text-4xl font-black text-white tracking-tighter uppercase leading-none">{selectedProduct.name}</h3>
+                  <p className="text-gray-500 text-[10px] font-black uppercase tracking-widest mt-2">Minimum Threshold: ${selectedProduct.basePrice.toLocaleString()}</p>
                 </header>
 
                 <div className="space-y-6">
@@ -217,10 +241,11 @@ const AvailableWebsites: React.FC = () => {
                       <input 
                         required
                         type="number" 
+                        min={selectedProduct.basePrice}
                         value={bidForm.amount}
                         onChange={(e) => setBidForm({...bidForm, amount: e.target.value})}
                         className="w-full bg-background border border-border-light rounded-[1.5rem] pl-16 pr-6 py-6 text-white focus:outline-none focus:border-primary transition-all font-mono text-2xl font-black shadow-inner"
-                        placeholder="0.00"
+                        placeholder={selectedProduct.basePrice.toString()}
                       />
                     </div>
                   </div>
